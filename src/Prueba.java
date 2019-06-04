@@ -1,5 +1,189 @@
 import javax.swing.*;
+
 import java.awt.*;
+import java.lang.reflect.Method;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+class Expresion{ //Clase que obtiene la función y la evalúa
+    enum TipoToken  {   NUMERO, VARIABLE, FUNCION, ADD, SUB, MUL, DIV,
+                        EXP, P_IZQ, P_DER, ERROR };
+    class Token {
+        TipoToken tipo;
+        String    texto;
+        Token(TipoToken ti, String te) { tipo=ti; texto=te;}
+        Token(TipoToken ti) { tipo = ti; }
+    }
+    Queue<Token>    colaTokens;
+    String          cadenaFuncion;
+    double          variable;
+
+    Expresion(String c) throws Exception {//solo recibe como parametro la funcion y la ingresa en una variable de instancia
+        cadenaFuncion = c;
+    }
+
+    public void generarTokens() throws Exception {//separa la funcion en "tokens" y por tipo caracter que son
+        colaTokens = new LinkedList<Token>();//inicializar la lista
+        StringBuffer entrada   = new StringBuffer(cadenaFuncion);//variables de instancia
+        
+        Pattern pNumero = Pattern.compile("\\-?\\d+(\\.\\d+)?");
+        Pattern pID     = Pattern.compile("\\p{Alpha}\\w+");
+        
+        while(entrada.length()>0) {//ciclo que recorre toda la funcion
+            Matcher      m  = pNumero.matcher(entrada);
+            if(m.lookingAt()) {//compara que sea numero
+                colaTokens.add(new Token(TipoToken.NUMERO,m.group()));
+                entrada.delete(0, m.end());
+                continue;
+            }
+            if(entrada.charAt(0) == 'x' || entrada.charAt(0) == 'X') {//compara que la variable sea x o X
+                colaTokens.add(new Token(TipoToken.VARIABLE,"x"));
+                entrada.deleteCharAt(0);
+                continue;
+            }
+            if(entrada.charAt(0) == '+') {//compara el signo de + para saber si es suma
+                colaTokens.add(new Token(TipoToken.ADD));
+                entrada.deleteCharAt(0);
+                continue;
+            }
+            if(entrada.charAt(0) == '-') {//compara el signo de menos para realizar la resta
+                colaTokens.add(new Token(TipoToken.SUB));
+                entrada.deleteCharAt(0);
+                continue;
+            }
+            if(entrada.charAt(0) == '*') {//compara el * para saber que es multiplicacion
+                colaTokens.add(new Token(TipoToken.MUL));
+                entrada.deleteCharAt(0);
+                continue;
+            }
+            if(entrada.charAt(0) == '/') {//el signo / es para la division 
+                colaTokens.add(new Token(TipoToken.DIV));
+                entrada.deleteCharAt(0);
+                continue;
+            }
+            if(entrada.charAt(0) == '(') {//identifica los parentesis abiertos
+                colaTokens.add(new Token(TipoToken.P_IZQ));
+                entrada.deleteCharAt(0);
+                continue;
+            }
+            if(entrada.charAt(0) == ')') {//identifica los parentesis de cierre
+                colaTokens.add(new Token(TipoToken.P_DER));
+                entrada.deleteCharAt(0);
+                continue;
+            }
+            if(entrada.charAt(0) == '^') {//identifica el exponencial para realizar su calculo
+                colaTokens.add(new Token(TipoToken.EXP));
+                entrada.deleteCharAt(0);
+                continue;
+            }
+            m = pID.matcher(entrada);
+            if(m.lookingAt()) {//si la variable m contenga el valor por decirlo de alguna manera y lo elimina de "entrada"
+                colaTokens.add(new Token(TipoToken.FUNCION, m.group()));
+                entrada.delete(0, m.end());
+                continue;
+            }
+            throw new Exception("Elemento no reconocido en la entrada: " 
+                                 + entrada.charAt(0));//esta ecepcion es por que el elemento no e pudo identificar 
+        }//fin ciclo
+    }//fin metodo generarTokens
+
+    public double evaluar(double x) throws Exception {//este metodo es el que se manda a llamar paara evaluar la funcion con 
+    												//el valor deseado
+        generarTokens();
+        variable = x;
+        return expresion();
+    }//fin metodo evaluar
+
+    public double expresion() {//realiza las operaciones de suma y resta
+        double respuesta=termino();
+        while(!colaTokens.isEmpty() ) {
+            switch(colaTokens.element().tipo) {
+                case ADD:   colaTokens.remove();
+                            respuesta+=termino();
+                            continue;
+                case SUB:   colaTokens.remove();
+                            respuesta-=termino();
+                            continue;
+            }
+            break;
+        }
+        return respuesta;
+    }//fin termino expresion
+
+    public double termino() {//realiza las operaciones de multiplicacion y division
+        double respuesta=factor();
+        while(!colaTokens.isEmpty() ) {
+            switch(colaTokens.element().tipo) {
+                case MUL:   colaTokens.remove();
+                            respuesta*=factor();
+                            continue;
+                case DIV:   colaTokens.remove();
+                            respuesta/=factor();
+                            continue;
+                default:
+            }
+            break;
+        }
+        //System.out.println("Termino respuesta: "+respuesta);
+        return respuesta;
+    }//fin metodo termino
+
+    public double factor() {//realiza las operaciones de exponentes
+        double respuesta=valor();
+        while(!colaTokens.isEmpty() ) {
+            switch(colaTokens.element().tipo) {
+                case EXP:   colaTokens.remove();
+                            respuesta=Math.pow(respuesta,valor());
+                            //System.out.println("Factor respuesta "+respuesta);
+                            continue;
+            }
+            break;
+        }
+       
+        return respuesta;
+    }//fin metodo factor
+
+    public double valor() {//el metodo se encarga de separar los tokens por tippo y posicion 
+        Token token;
+        try {
+            double respuesta = 0;
+            token     = colaTokens.poll();
+            switch(token.tipo) {
+                case P_IZQ:     respuesta = expresion();
+                                leaToken(TipoToken.P_DER);
+                                return respuesta;
+                case NUMERO:    return Double.parseDouble(token.texto);
+                case VARIABLE:  return variable;
+                case FUNCION:   leaToken(TipoToken.P_IZQ);
+                                double argumento=expresion();
+                                leaToken(TipoToken.P_DER);
+                                Method m = java.lang.Math.class.
+                                           getMethod(token.texto, Double.TYPE);
+                                return (Double) m.invoke(null, argumento);
+            }
+            
+        }
+        catch(Exception ex) {
+            System.err.println("Error: "  + ex.getMessage());
+            System.exit(0);
+        }
+        return 0;
+    }//fin  metodo valor
+
+    public boolean leaToken(TipoToken t) {
+        Token token = colaTokens.poll();
+        if(token.tipo.equals(t)) {
+            return true;
+        }
+        else {
+            System.err.println("Error: elemento no permitido "  + token.texto );
+            return false;
+        }
+    }//fin metodo lea tokens
+
+}//fin class expresion
 
 class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 
@@ -126,14 +310,9 @@ class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 		
 		solucion = new JButton("Resolver");
 		solucion.setBounds(180, 300, 100, 30);
-		add(solucion);
-		
+		add(solucion);	
 		
 	}//VentanaInicio
-	
-	
-	
-	
 	
 }//ClassVentanaInicio
 
