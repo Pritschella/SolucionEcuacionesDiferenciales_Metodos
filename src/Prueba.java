@@ -1,6 +1,8 @@
 import javax.swing.*;
 
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.lang.reflect.Method;
 import java.util.LinkedList;
 import java.util.Queue;
@@ -185,7 +187,7 @@ class Expresion{ //Clase que obtiene la función y la evalúa
 
 }//fin class expresion
 
-class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
+class VentanaInicio extends JFrame implements ActionListener{ //Clase donde se implementará la interfaz
 
 						//Componentes que se van a utilizar
 	JTextField cajaDerivada, cajaXCero, cajaYCero, cajaN, cajaXi, cajaResultado;  //Cajas de texto que se utilizarán
@@ -240,6 +242,7 @@ class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 		
 		cajaDerivada = new JTextField(); //Caja donde se ingresará la derivada
 		cajaDerivada.setBounds(65, 150, 150, 20);
+		cajaDerivada.addActionListener(this);
 		add(cajaDerivada);
 		
 		JLabel xYy = new JLabel("(X, Y)"); //Texto que está debajo de la caja
@@ -252,6 +255,7 @@ class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 		
 		cajaXCero = new JTextField(); //Caja donde se ingresa X0
 		cajaXCero.setBounds(35, 185, 60, 20 );
+		cajaXCero.addActionListener(this);
 		add(cajaXCero);
 		
 		JLabel parentesis = new JLabel(")  = "); //Terminacion del texto de punto inicial
@@ -264,6 +268,7 @@ class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 		
 		cajaYCero =new JTextField();  //Caja de Y0
 		cajaYCero.setBounds(120, 185, 95, 20);
+		cajaYCero.addActionListener(this);
 		add(cajaYCero);
 		
 		JLabel yCero = new JLabel("(Y0)"); //Texto que está debajo de Y0
@@ -276,6 +281,7 @@ class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 		
 		cajaXi = new JTextField(); //Caja donde se ingresa Xi
 		cajaXi.setBounds(35, 220, 60, 20 );
+		cajaXi.addActionListener(this);
 		add(cajaXi);
 		
 		JLabel parentesis2 = new JLabel(")  = "); //Terminacion del texto de condicion inicial
@@ -289,6 +295,8 @@ class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 		
 		cajaResultado = new JTextField();
 		cajaResultado.setBounds(120, 220, 100, 20);
+		cajaResultado.addActionListener(this);
+		cajaResultado.setEnabled(false);
 		add(cajaResultado);
 		
 		JLabel resultado = new JLabel("resultado");
@@ -301,6 +309,7 @@ class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 		
 		cajaN = new JTextField();
 		cajaN.setBounds(320, 185, 100, 20);
+		cajaN.addActionListener(this);
 		add(cajaN);
 		
 		JLabel intervalo = new JLabel("intervalo");
@@ -310,9 +319,63 @@ class VentanaInicio extends JFrame{ //Clase donde se implementará la interfaz
 		
 		solucion = new JButton("Resolver");
 		solucion.setBounds(180, 300, 100, 30);
+		solucion.addActionListener(this);
 		add(solucion);	
 		
 	}//VentanaInicio
+
+	public void MetodEuler(String funcion, double x0, double x1, double y, int n, JTextField cajaResultado) {
+	
+		try {
+			Expresion e = new Expresion(funcion);
+			
+			double resultado=0, f, h;
+			double X[]= new double[n+1];
+			double Y[]= new double[n+1];
+			
+			h=(x1 - x0)/n;
+			X[0]=x0;
+			Y[0]=y;
+			
+			for (int i = 0; i < n; i++) {
+				f=e.evaluar(X[i])+e.evaluar(Y[i]);
+				
+				X[i+1]=X[i]+h;
+				Y[i+1]=Y[i]+(h*f);
+				
+			}
+			resultado=Y[n];
+			cajaResultado.setText(String.valueOf(resultado));
+			
+		} catch (Exception e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		}
+		
+	}
+
+	@Override
+	public void actionPerformed(ActionEvent e) {
+		// TODO Auto-generated method stub
+		if (e.getSource()==solucion) {
+			if (!cajaDerivada.getText().equals("")&&!cajaN.getText().equals("")&&!cajaXCero.getText().equals("")&&!cajaXi.getText().equals("")&&!cajaYCero.getText().equals("")) {
+			
+				String funcion=cajaDerivada.getText().toString();
+				double x0=Double.parseDouble( cajaXCero.getText()), xi=Double.parseDouble(cajaXi.getText()),
+						y0=Double.parseDouble(cajaYCero.getText());
+				int n=Integer.parseInt(cajaN.getText());
+				
+				MetodEuler(funcion, x0, xi, y0, n, cajaResultado);
+				
+			}else {
+				JOptionPane.showMessageDialog(rootPane, "Campos vacios!!!!");
+			}
+			
+			
+		}
+	}
+	
+	
 	
 }//ClassVentanaInicio
 
